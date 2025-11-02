@@ -1,14 +1,22 @@
 package com.jk.labs.java1721.concurrency.forex_engine.service.impl;
 
+import com.jk.labs.java1721.concurrency.forex_engine.core.model.Trade;
 import com.jk.labs.java1721.concurrency.forex_engine.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TradeQueueServiceImpl implements TradeQueueService {
+
+    private static final int QUEUE_CAPACITY = 10000;
+
+    public static final BlockingQueue<Trade> tradeQueue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
 
     private final TradeProducer tradeProducer;
     private final TradeValidator tradeValidator;
