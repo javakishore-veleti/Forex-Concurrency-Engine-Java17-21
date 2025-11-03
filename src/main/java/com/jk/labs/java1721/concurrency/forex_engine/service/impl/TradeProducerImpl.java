@@ -9,15 +9,18 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.Random;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 
-@SuppressWarnings("BusyWait")
+@SuppressWarnings("CommentedOutCode")
 @Service
 @Slf4j
 public class TradeProducerImpl implements TradeProducer {
 
-    private ExecutorService executorService;
+    // private ExecutorService executorService;
+    private ScheduledExecutorService scheduledExecutorService;
+    private ScheduledFuture<?> tradeProducerTask;
 
     /*
     By default, every @Service bean in Spring is a singleton — one instance per application context.
@@ -113,70 +116,86 @@ public class TradeProducerImpl implements TradeProducer {
      */
     @Override
     public void start() {
-        if(running) {
+        if (running) {
             return;
         }
 
         running = true;
-        executorService = Executors.newSingleThreadExecutor();
-        executorService.submit(this::productTrades);
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        tradeProducerTask = scheduledExecutorService.scheduleAtFixedRate(
+                this::produceTradeSafe, 0, 10, java.util.concurrent.TimeUnit.SECONDS
+        );
+        // executorService = Executors.newSingleThreadExecutor();
+        // executorService.submit(this::produceTradeSafe);
     }
 
     @Override
     public void stop() {
+        if (!running) {
+            return;
+        }
 
+        log.info("STARTED Classic trade producer stopping");
+        running = false;
+
+        this.tradeProducerTask.cancel(true);
+        this.tradeProducerTask = null;
+
+        this.scheduledExecutorService.shutdownNow();
+        this.scheduledExecutorService = null;
+        // executorService.shutdownNow();
+
+        log.info("COMPLETED Classic trade producer stopped and references cleared for GC.");
     }
 
-    public void productTrades() {
-        Random random = new Random();
-        while(running) {
-            try {
-                Trade trade = new Trade();
-                trade.setId(UUID.randomUUID().toString());
-                trade.setAccountId(UUID.randomUUID().toString());
-                trade.setBrokerId(UUID.randomUUID().toString());
-                trade.setFromCurrency("USD");
-                trade.setToCurrency("EUR");
-                trade.setRate(BigDecimal.valueOf(random.nextDouble()));
-                trade.setStatus("NEW");
-                trade.setNoOfUnits(random.nextInt(1000));
-                trade.setAmount(BigDecimal.valueOf(random.nextDouble() * 10000));
-
-                /*
-                method call will block (halt) if the queue is full.
-                the calling thread will pause right there and not return until
-                a consumer thread removes at least one trade from the queue.
-                This producer thread is paused, not killed — it’s parked efficiently by the JVM (no CPU usage).
-                You don’t have to write wait/notify logic — BlockingQueue handles it internally.
-                This is intentional — it provides built-in backpressure.
-
-                🧩 What if You Don’t Want It to Block?
-                If you want TradeQueueManager.addTrade(trade) to return immediately, you can use:
-                Option 1: Try with timeout
-
-                boolean success = TradeQueueManager.offerTrade(trade, 2, TimeUnit.SECONDS);
-                if (!success) {
-                    log.warn("Trade dropped due to full queue: {}", trade.getId());
-                }
-                Option 2: Drop or retry logic
-                boolean success = TradeQueueManager.offerTrade(trade);
-                if (!success) {
-                    // handle full queue (e.g., drop, log, retry later)
-                     // Maybe retry later or persist to a dead-letter queue
-                     // This prevents the thread from halting but requires you to decide what to do when the system is overloaded.
-
-                 TradeQueueManager.addTrade(trade) will not complete and will be blocked (halted)
-                 if the queue is full and no consumer has removed an element yet.
-
-                  It resumes automatically once a consumer calls take() and frees space.
-                 */
-                TradeQueueManager.addTrade(trade);
-
-                log.info("Produced trade: {}", trade.getId());
-                Thread.sleep(10000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+    public void produceTradeSafe() {
+        if (!running) {
+            return;
         }
+
+        Random random = new Random();
+
+        Trade trade = new Trade();
+        trade.setId(UUID.randomUUID().toString());
+        trade.setAccountId(UUID.randomUUID().toString());
+        trade.setBrokerId(UUID.randomUUID().toString());
+        trade.setFromCurrency("USD");
+        trade.setToCurrency("EUR");
+        trade.setRate(BigDecimal.valueOf(random.nextDouble()));
+        trade.setStatus("NEW");
+        trade.setNoOfUnits(random.nextInt(1000));
+        trade.setAmount(BigDecimal.valueOf(random.nextDouble() * 10000));
+
+        /*
+        method call will block (halt) if the queue is full.
+        the calling thread will pause right there and not return until
+        a consumer thread removes at least one trade from the queue.
+        This producer thread is paused, not killed — it’s parked efficiently by the JVM (no CPU usage).
+        You don’t have to write wait/notify logic — BlockingQueue handles it internally.
+        This is intentional — it provides built-in backpressure.
+
+        🧩 What if You Don’t Want It to Block?
+        If you want TradeQueueManager.addTrade(trade) to return immediately, you can use:
+        Option 1: Try with timeout
+
+        boolean success = TradeQueueManager.offerTrade(trade, 2, TimeUnit.SECONDS);
+        if (!success) {
+            log.warn("Trade dropped due to full queue: {}", trade.getId());
+        }
+        Option 2: Drop or retry logic
+        boolean success = TradeQueueManager.offerTrade(trade);
+        if (!success) {
+            // handle full queue (e.g., drop, log, retry later)
+             // Maybe retry later or persist to a dead-letter queue
+             // This prevents the thread from halting but requires you to decide what to do when the system is overloaded.
+
+         TradeQueueManager.addTrade(trade) will not complete and will be blocked (halted)
+         if the queue is full and no consumer has removed an element yet.
+
+          It resumes automatically once a consumer calls take() and frees space.
+         */
+        TradeQueueManager.addTrade(trade);
+
+        log.info("Produced trade: {}", trade.getId());
     }
 }

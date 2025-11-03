@@ -1,7 +1,6 @@
 package com.jk.labs.java1721.concurrency.forex_engine.config;
 
 import com.jk.labs.java1721.concurrency.forex_engine.core.model.Trade;
-import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import org.springframework.context.annotation.Configuration;
 

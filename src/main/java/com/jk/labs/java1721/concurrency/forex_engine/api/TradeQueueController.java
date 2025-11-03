@@ -5,18 +5,19 @@ import com.jk.labs.java1721.concurrency.forex_engine.service.TradeQueueService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping(value = "/api/concurrency", produces = "application/json", consumes = "application/json")
+@RequestMapping(value = "/api/concurrency", produces = "application/json")
 @RequiredArgsConstructor
 public class TradeQueueController {
 
     private final TradeQueueService tradeQueueService;
 
     // Starts the classic BlockingQueue pipeline
-    @RequestMapping("/blockingqueue/start")
-    public ResponseEntity<TradeRespDto>blockingqueueStart() {
+    @RequestMapping(path = "/blockingqueue/start", method = RequestMethod.GET)
+    public ResponseEntity<TradeRespDto> blockingqueueStart() {
         TradeRespDto tradeRespDto = new TradeRespDto();
 
         tradeQueueService.startClassicBlockingQueuePipeline();
@@ -26,8 +27,8 @@ public class TradeQueueController {
     }
 
     // Stops workers (graceful shutdown)
-    @RequestMapping("/blockingqueue/stop")
-    public ResponseEntity<TradeRespDto>blockingqueueStop() {
+    @RequestMapping(path = "/blockingqueue/stop", method = RequestMethod.GET)
+    public ResponseEntity<TradeRespDto> blockingqueueStop() {
         TradeRespDto tradeRespDto = new TradeRespDto();
 
         tradeQueueService.stopClassicBlockingQueuePipeline();
@@ -37,8 +38,8 @@ public class TradeQueueController {
     }
 
     // Runs same logic with Virtual Threads (Java 21)
-    @RequestMapping("/virtualThreads/start")
-    public ResponseEntity<TradeRespDto>virtualThreadsStart() {
+    @RequestMapping(path = "/virtualThreads/start", method = RequestMethod.GET)
+    public ResponseEntity<TradeRespDto> virtualThreadsStart() {
         TradeRespDto tradeRespDto = new TradeRespDto();
 
         tradeQueueService.startVirtualThreadPipeline();
